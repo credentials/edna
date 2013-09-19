@@ -120,11 +120,10 @@ void edna_comm_thread::terminate()
 		struct sockaddr_un peer;
 		socklen_t peer_len = sizeof(struct sockaddr_un);
 		
-		/* Wait for incoming connections */
-		struct timeval timeout = { 0, 10000 }; // 10ms
-		
+		/* Wait for incoming connections */		
 		while (should_run)
 		{
+			struct timeval timeout = { 0, 10000 }; // 10ms
 			fd_set wait_socks;
 			FD_ZERO(&wait_socks);
 			FD_SET(socket_fd, &wait_socks);
