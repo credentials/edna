@@ -65,6 +65,17 @@ public:
 	 */
 	bool transceive(bytestring& apdu, bytestring& rdata);
 	
+	/**
+	 * Is there an application selected?
+	 * @return true if an application is currently selected
+	 */
+	bool application_selected();
+	
+	/**
+	 * Deselect the application
+	 */
+	void deselect();
+	
 protected:
 	/**
 	 * The thread body

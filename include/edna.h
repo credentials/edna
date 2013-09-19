@@ -33,7 +33,6 @@
 #ifndef _EDNA_H
 #define _EDNA_H
 
-#include "config.h"
 #include <stdlib.h>
 
 #define FLAG_SET(flags, flag) ((flags & flag) == flag)

@@ -424,3 +424,13 @@ bool edna_comm_thread::transceive(bytestring& apdu, bytestring& rdata)
 	
 	return true;
 }
+
+bool edna_comm_thread::application_selected()
+{
+	return (selected_application != NO_APP_SELECTED);
+}
+
+void edna_comm_thread::deselect()
+{
+	selected_application = NO_APP_SELECTED;
+}

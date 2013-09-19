@@ -58,7 +58,7 @@ bool edna_emulator::transceive_control(SCARDHANDLE reader, const bytestring& cmd
 	DWORD pcsc_rv;
 	DWORD rlen;
 	
-	//DEBUG_MSG("--> %s", cmd.hex_str().c_str());
+	//DEBUG_MSG("[C] --> %s (%d)", cmd.hex_str().c_str(), cmd.size());
 	
 	rdata.resize(512);
 	if ((pcsc_rv = SCardControl(reader, IOCTL_CCID_ESCAPE_DIRECT, cmd.const_byte_str(), cmd.size(), rdata.byte_str(), 512, &rlen)) != SCARD_S_SUCCESS)
@@ -73,7 +73,7 @@ bool edna_emulator::transceive_control(SCARDHANDLE reader, const bytestring& cmd
 	
 	rdata.resize(rlen);
 	
-	//DEBUG_MSG("<-- %s", rdata.hex_str().c_str());
+	//DEBUG_MSG("[C] <-- %s", rdata.hex_str().c_str());
 	
 	return true;
 }
@@ -140,6 +140,7 @@ void edna_emulator::run()
 	bytestring 	start_emu 	= "83100100";
 	bytestring	set_atq_sak	= "588de3";
 	bytestring	buzzer_off	= "588dcc00";
+	bytestring 	end_emu 	= "83100000";
 	bytestring	rdata;
 	DWORD		rlen 		= 0;
 	
@@ -189,6 +190,25 @@ void edna_emulator::run()
 			break;
 		case 0x04:	/* ISO 14443A DESELECT */
 			INFO_MSG("ISO 14443A DESELECT event received on reader %s", reader.c_str());
+			
+			if (comm_thread->application_selected())
+			{
+				INFO_MSG("Deselecting application");
+				
+				comm_thread->deselect();
+				
+				INFO_MSG("Sleeping 2 seconds then resetting emulation on reader");
+				sleep(2);
+				
+				// Reset the emulation in the hope that this makes
+				// everything more stable
+				if (!transceive_control(pcsc_reader, end_emu, rdata)) return;
+				if (!transceive_control(pcsc_reader, set_atq_sak, rdata)) return;
+				if (!transceive_control(pcsc_reader, buzzer_off, rdata)) return;
+				if (!transceive_control(pcsc_reader, start_emu, rdata)) return;
+				
+				INFO_MSG("Emulation successfully reset");
+			}
 			break;
 		case 0x02:	/* C-APDU received */
 			{
@@ -267,8 +287,6 @@ void edna_emulator::run()
 	}
 	
 	/* Leave emulation mode */
-	bytestring 	end_emu 	= "83100000";
-
 	INFO_MSG("Leaving emulation mode on reader %s", reader.c_str());
 	
 	if (!transceive_control(pcsc_reader, end_emu, rdata)) return;
