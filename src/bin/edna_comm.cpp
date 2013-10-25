@@ -373,7 +373,7 @@ void edna_comm_thread::select_by_aid(bytestring& aid)
 
 bool edna_comm_thread::transceive(bytestring& apdu, bytestring& rdata)
 {
-	DEBUG_MSG("--> %s", apdu.hex_str().c_str());
+	DEBUG_MSG("--> %s (%zd)", apdu.hex_str().c_str(), apdu.size());
 	
 	rdata = "6d00";
 	
@@ -420,7 +420,7 @@ bool edna_comm_thread::transceive(bytestring& apdu, bytestring& rdata)
 		}
 	}
 	
-	DEBUG_MSG("<-- %s", rdata.hex_str().c_str());
+	DEBUG_MSG("<-- %s (%zd)", rdata.hex_str().c_str(), rdata.size());
 	
 	return true;
 }

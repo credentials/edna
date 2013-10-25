@@ -29,4 +29,4 @@ edna_SOURCES =			edna_main.cpp \
 				../common/edna_bytestring.h \
 				../common/edna_proto.h
 
-edna_LDADD =			@PCSC_LIBS@ @LIBCONFIG_LIBS@
+edna_LDADD =			@PCSC_LIBS@ @LIBCONFIG_LIBS@ -lrt
