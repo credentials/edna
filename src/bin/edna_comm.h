@@ -84,6 +84,12 @@ protected:
 	
 private:
 	/**
+	 * Unregister the client based on its socket
+	 * @param client_socket the client to ditch
+	 */
+	void unregister_by_socket(int client_socket);
+	
+	/**
 	 * Receive data from a client
 	 * @param client_socket the client socket to receive data from
 	 * @param rx buffer for the received data

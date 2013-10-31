@@ -65,6 +65,25 @@ void edna_comm_thread::terminate()
 	waitexit();
 }
 
+void edna_comm_thread::unregister_by_socket(int client_socket)
+{
+	for (std::map<bytestring, int>::iterator i = application_registry.begin(); i != application_registry.end(); i++)
+	{
+		if (i->second == client_socket)
+		{
+			INFO_MSG("Closing socket %d", client_socket);
+			
+			close(client_socket);
+			
+			INFO_MSG("Unregistering application with AID %s", i->first.hex_str().c_str());
+			
+			application_registry.erase(i);
+			
+			break;
+		}
+	}	
+}
+
 /*virtual*/ void edna_comm_thread::threadproc()
 {
 	DEBUG_MSG("Entering communications thread");
@@ -119,14 +138,20 @@ void edna_comm_thread::terminate()
 	{
 		struct sockaddr_un peer;
 		socklen_t peer_len = sizeof(struct sockaddr_un);
+		fd_set wait_socks;
 		
-		/* Wait for incoming connections */		
+		/* Wait for incoming connections and commands on open connections */		
 		while (should_run)
 		{
 			struct timeval timeout = { 0, 10000 }; // 10ms
-			fd_set wait_socks;
 			FD_ZERO(&wait_socks);
 			FD_SET(socket_fd, &wait_socks);
+			
+			/* Add sockets for open connections */
+			for (std::map<bytestring, int>::iterator i = application_registry.begin(); i != application_registry.end(); i++)
+			{
+				FD_SET(i->second, &wait_socks);
+			}
 	
 			int rv = select(FD_SETSIZE, &wait_socks, NULL, NULL, &timeout);
 			
@@ -135,30 +160,62 @@ void edna_comm_thread::terminate()
 		
 		if (!should_run) break;
 		
-		/* Accept new connection */
-		int new_client_fd = accept(socket_fd, (struct sockaddr*) &peer, &peer_len);
-		
-		if (new_client_fd >= 0)
+		if (FD_ISSET(socket_fd, &wait_socks))
 		{
-			INFO_MSG("New client socket %d open", new_client_fd);
+			/* Accept new connection */
+			int new_client_fd = accept(socket_fd, (struct sockaddr*) &peer, &peer_len);
 			
-			new_client(new_client_fd);
+			if (new_client_fd >= 0)
+			{
+				INFO_MSG("New client socket %d open", new_client_fd);
+				
+				new_client(new_client_fd);
+			}
+			else
+			{
+				switch(errno)
+				{
+				case EAGAIN:
+					continue;
+				case ECONNABORTED:
+					WARNING_MSG("Incoming connection aborted");
+					continue;
+				case EINTR:
+					WARNING_MSG("Interrupted by signal");
+					break;
+				default:
+					ERROR_MSG("Error accepting new incoming connections (%d)", errno);
+					break;
+				}
+			}
 		}
 		else
 		{
-			switch(errno)
+			/* A command was received on one of the open connections */
+			bytestring rx;
+			
+			for (std::map<bytestring, int>::iterator i = application_registry.begin(); i != application_registry.end(); i++)
 			{
-			case EAGAIN:
-				continue;
-			case ECONNABORTED:
-				WARNING_MSG("Incoming connection aborted");
-				continue;
-			case EINTR:
-				WARNING_MSG("Interrupted by signal");
-				break;
-			default:
-				ERROR_MSG("Error accepting new incoming connections (%d)", errno);
-				break;
+				if (FD_ISSET(i->second, &wait_socks))
+				{
+					if (!recv_from_client(i->second, rx))
+					{
+						INFO_MSG("Connection to client on socket %d was closed");
+						
+						unregister_by_socket(i->second);
+					}
+					else
+					{
+						if ((rx.size() > 0) && (rx[0] == DISCONNECT))
+						{
+							INFO_MSG("Client ask for disconnect");
+							
+							unregister_by_socket(i->second);
+						}
+					}
+					
+					break;
+				}
 			}
 		}
 	}
@@ -401,7 +458,7 @@ bool edna_comm_thread::transceive(bytestring& apdu, bytestring& rdata)
 		{
 			ERROR_MSG("Failed to send APDU to client on socket %d, closing socket", selected_application);
 			
-			close(selected_application);
+			unregister_by_socket(selected_application);
 			
 			selected_application = NO_APP_SELECTED;
 			
@@ -412,7 +469,7 @@ bool edna_comm_thread::transceive(bytestring& apdu, bytestring& rdata)
 		{
 			ERROR_MSG("Failed to receive R-APDU from client on socket %d, closing socket", selected_application);
 			
-			close(selected_application);
+			unregister_by_socket(selected_application);
 			
 			selected_application = NO_APP_SELECTED;
 			

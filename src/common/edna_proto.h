@@ -46,6 +46,7 @@
 /* API commands */
 #define GET_API_VERSION		0x01
 #define REGISTER_AID		0x02
+#define DISCONNECT			0x03
 
 /* API return values */
 #define EDNA_OK				0x00

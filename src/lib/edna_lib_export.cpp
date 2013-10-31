@@ -309,6 +309,12 @@ edna_rv edna_lib_disconnect(void)
 		return ERV_NOT_CONNECTED;
 	}
 	
+	/* Send disconnect command */
+	std::vector<unsigned char> disconnect_cmd;
+	disconnect_cmd.push_back(DISCONNECT);
+	
+	send_to_daemon(disconnect_cmd);
+	
 	close(daemon_socket);
 	edna_lib_connected = false;
 	
