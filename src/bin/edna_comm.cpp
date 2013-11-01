@@ -143,7 +143,7 @@ void edna_comm_thread::unregister_by_socket(int client_socket)
 		/* Wait for incoming connections and commands on open connections */		
 		while (should_run)
 		{
-			struct timeval timeout = { 0, 10000 }; // 10ms
+			struct timeval timeout = { 0, 1000 }; // 1ms
 			FD_ZERO(&wait_socks);
 			FD_SET(socket_fd, &wait_socks);
 			
@@ -153,7 +153,11 @@ void edna_comm_thread::unregister_by_socket(int client_socket)
 				FD_SET(i->second, &wait_socks);
 			}
 	
+			comm_mutex.lock();
+			
 			int rv = select(FD_SETSIZE, &wait_socks, NULL, NULL, &timeout);
+			
+			comm_mutex.unlock();
 			
 			if (rv > 0) break;
 		}
@@ -454,8 +458,12 @@ bool edna_comm_thread::transceive(bytestring& apdu, bytestring& rdata)
 	
 	if (selected_application != NO_APP_SELECTED)
 	{
+		comm_mutex.lock();
+		
 		if (!send_to_client(selected_application, apdu))
 		{
+			comm_mutex.unlock();
+			
 			ERROR_MSG("Failed to send APDU to client on socket %d, closing socket", selected_application);
 			
 			unregister_by_socket(selected_application);
@@ -467,6 +475,8 @@ bool edna_comm_thread::transceive(bytestring& apdu, bytestring& rdata)
 		
 		if (!recv_from_client(selected_application, rdata))
 		{
+			comm_mutex.unlock();
+			
 			ERROR_MSG("Failed to receive R-APDU from client on socket %d, closing socket", selected_application);
 			
 			unregister_by_socket(selected_application);
@@ -475,6 +485,8 @@ bool edna_comm_thread::transceive(bytestring& apdu, bytestring& rdata)
 			
 			return false;
 		}
+		
+		comm_mutex.unlock();
 	}
 	
 	DEBUG_MSG("<-- %s (%zd)", rdata.hex_str().c_str(), rdata.size());
