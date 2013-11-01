@@ -36,6 +36,7 @@
 #include "edna_log.h"
 #include <winscard.h>
 #include <reader.h>
+#include <unistd.h>
 
 #define DEFAULT_ATQ					0x0004
 #define DEFAULT_SAK					0x28
@@ -47,6 +48,17 @@ edna_emulator::edna_emulator(edna_comm_thread* comm_thread)
 	should_cancel = false;
 	
 	pcsc_context = 0;
+	
+	edna_conf_get_int("emulation", "cmd_delay", cmd_delay, 0);
+	
+	DEBUG_MSG("Setting delay between C-APDU and R-APDU to %dms", cmd_delay);
+	
+	edna_conf_get_bool("emulation", "delay_success_only", delay_success_only, false);
+	
+	if (delay_success_only)
+	{
+		DEBUG_MSG("Only delaying successful commands");
+	}
 }
 	
 edna_emulator::~edna_emulator()
@@ -57,8 +69,6 @@ bool edna_emulator::transceive_control(SCARDHANDLE reader, const bytestring& cmd
 {
 	DWORD pcsc_rv;
 	DWORD rlen;
-	
-	//DEBUG_MSG("[C] --> %s (%d)", cmd.hex_str().c_str(), cmd.size());
 	
 	rdata.resize(512);
 	if ((pcsc_rv = SCardControl(reader, IOCTL_CCID_ESCAPE_DIRECT, cmd.const_byte_str(), cmd.size(), rdata.byte_str(), 512, &rlen)) != SCARD_S_SUCCESS)
@@ -72,8 +82,6 @@ bool edna_emulator::transceive_control(SCARDHANDLE reader, const bytestring& cmd
 	}
 	
 	rdata.resize(rlen);
-	
-	//DEBUG_MSG("[C] <-- %s", rdata.hex_str().c_str());
 	
 	return true;
 }
@@ -266,6 +274,16 @@ void edna_emulator::run()
 				}
 				
 				//DEBUG_MSG("<-- %s", send_to_ifd.hex_str().c_str());
+				
+				if (cmd_delay)
+				{
+					if (!delay_success_only || (send_to_ifd.substr(send_to_ifd.size() - 2) == "9000"))
+					{
+						DEBUG_MSG("Delaying %dms", cmd_delay);
+						
+						usleep(cmd_delay * 1000);
+					}
+				}
 				
 				bytestring send_rapdu = "84";
 				send_rapdu += send_to_ifd;

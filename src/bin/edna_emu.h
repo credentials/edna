@@ -74,6 +74,8 @@ private:
 	edna_comm_thread* comm_thread;
 	bool should_cancel;
 	SCARDCONTEXT pcsc_context;
+	int cmd_delay;
+	bool delay_success_only;
 };
 
 #endif /* !_EDNA_EMU_H */

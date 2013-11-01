@@ -34,6 +34,7 @@
 #include "edna_comm.h"
 #include "edna_log.h"
 #include "edna_proto.h"
+#include "edna_config.h"
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
