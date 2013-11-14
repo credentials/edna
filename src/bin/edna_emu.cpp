@@ -195,15 +195,19 @@ void edna_emulator::run()
 		{
 		case 0x01:	/* ISO 14443A SELECT */
 			DEBUG_MSG("ISO 14443A SELECT event received on reader %s", reader.c_str());
+			
+			INFO_MSG("Sending POWER UP to running emulations");
+			
+			comm_thread->powerup_on_select();
 			break;
 		case 0x04:	/* ISO 14443A DESELECT */
 			INFO_MSG("ISO 14443A DESELECT event received on reader %s", reader.c_str());
 			
 			if (comm_thread->application_selected())
 			{
-				INFO_MSG("Deselecting application");
+				INFO_MSG("Sending POWER DOWN to running emulations");
 				
-				comm_thread->deselect();
+				comm_thread->powerdown_on_deselect();
 				
 				INFO_MSG("Sleeping 2 seconds then resetting emulation on reader");
 				sleep(2);
@@ -216,6 +220,12 @@ void edna_emulator::run()
 				if (!transceive_control(pcsc_reader, start_emu, rdata)) return;
 				
 				INFO_MSG("Emulation successfully reset");
+			}
+			else
+			{
+				INFO_MSG("Sending POWER DOWN to running emulations");
+				
+				comm_thread->powerdown_on_deselect();
 			}
 			break;
 		case 0x02:	/* C-APDU received */

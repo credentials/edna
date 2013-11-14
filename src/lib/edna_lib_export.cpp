@@ -321,8 +321,13 @@ edna_rv edna_lib_disconnect(void)
 	return ERV_OK;
 }
 
-edna_rv edna_lib_loop_and_process(handle_apdu process_cb)
+edna_rv edna_lib_loop_and_process(handle_apdu process_cb, power_up power_up_cb, power_down power_down_cb)
 {
+	if ((process_cb == NULL) || (power_up_cb == NULL) || (power_down_cb == NULL))
+	{
+		return ERV_PARAM_INVALID;
+	}
+	
 	edna_lib_must_cancel = false;
 	
 	while (!edna_lib_must_cancel)
@@ -342,10 +347,10 @@ edna_rv edna_lib_loop_and_process(handle_apdu process_cb)
 		
 		if (edna_lib_must_cancel) break;
 		
-		/* Receive APDU data from the daemon */
-		std::vector<unsigned char> apdu_data;
+		/* Receive a command from the daemon */
+		std::vector<unsigned char> cmd;
 		
-		if (recv_from_daemon(apdu_data) != 0)
+		if ((recv_from_daemon(cmd) != 0) || (cmd.size() < 1))
 		{
 			close(daemon_socket);
 			
@@ -355,16 +360,44 @@ edna_rv edna_lib_loop_and_process(handle_apdu process_cb)
 			return ERV_DISCONNECTED;
 		}
 		
-		std::vector<unsigned char> rdata;
-		rdata.resize(512);
-		size_t rdata_len = 512;
+		/* Perform processing based on the type of command */
+		std::vector<unsigned char> rsp;
 		
-		(process_cb)(&apdu_data[0], apdu_data.size(), &rdata[0], &rdata_len);
+		switch(cmd[0])
+		{
+		case POWER_UP:
+			(power_up_cb)();
+			rsp.push_back(EDNA_OK);
+			break;
+		case POWER_DOWN:
+			(power_down_cb)();
+			rsp.push_back(EDNA_OK);
+			break;
+		case TRANSCEIVE_APDU:
+			{
+				std::vector<unsigned char> r_apdu;
+				
+				r_apdu.resize(512);
+				size_t rdata_len = 512;
+				
+				(process_cb)(&cmd[1], cmd.size() - 1, &r_apdu[0], &rdata_len);
+				
+				r_apdu.resize(rdata_len);
+				
+				rsp.resize(r_apdu.size() + 1);
+				
+				rsp[0] = EDNA_OK;
+				
+				memcpy(&rsp[1], &r_apdu[0], r_apdu.size());
+			}
+			break;
+		default:
+			rsp.push_back(UNKNOWN_COMMAND);
+			break;
+		}
 		
 		/* Transmit the response data to the daemon */
-		rdata.resize(rdata_len);
-		
-		if (send_to_daemon(rdata) != 0)
+		if (send_to_daemon(rsp) != 0)
 		{
 			close(daemon_socket);
 			

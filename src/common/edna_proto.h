@@ -41,16 +41,22 @@
 #endif // !UNIX_PATH_MAX
 
 /* API version */
-#define API_VERSION			0x00
+#define API_VERSION			0x01
 
-/* API commands */
+/* Daemon-side API commands */
 #define GET_API_VERSION		0x01
 #define REGISTER_AID		0x02
 #define DISCONNECT			0x03
 
+/* Virtual card-side API commands */
+#define POWER_UP			0x01
+#define POWER_DOWN			0x02
+#define TRANSCEIVE_APDU		0x03
+
 /* API return values */
 #define EDNA_OK				0x00
 #define	AID_EXISTS			0x01
+#define UNKNOWN_COMMAND		0x02
 
 #endif // !_EDNA_PROTO_H
 

@@ -62,6 +62,10 @@ edna_rv edna_lib_uninit(void);
 /* Types for callback functions */
 typedef int (*handle_apdu)(const unsigned char* apdu_data, size_t apdu_len, unsigned char* rdata, size_t* rdata_len);
 
+typedef void (*power_up)(void);
+
+typedef void (*power_down)(void);
+
 /**
  * Connect to the daemon and register an AID
  * @param aid_data the AID data
@@ -81,11 +85,13 @@ edna_rv edna_lib_disconnect(void);
  * that calls the supplied callback function to process the APDUs.
  * The loop can be terminated by a call to edna_lib_cancel.
  * @param process_cb the callback function that processes APDUs
+ * @param power_up_cb the callback function to call when the ISO 14443 SELECT is sent to the device
+ * @param power_down_cb the callback function to call when the ISO 14443 DESELECT is sent to the device
  * @return ERV_OK if the event loop terminated because of a call to
  *         edna_lib_cancel, an error indicating why the event loop
  *         was terminated otherwise
  */
-edna_rv edna_lib_loop_and_process(handle_apdu process_cb);
+edna_rv edna_lib_loop_and_process(handle_apdu process_cb, power_up power_up_cb, power_down power_down_cb);
 
 /**
  * Terminate the event loop

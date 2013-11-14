@@ -72,9 +72,14 @@ public:
 	bool application_selected();
 	
 	/**
-	 * Deselect the application
+	 * Power up the emulated card (called upon ISO 14443 SELECT)
 	 */
-	void deselect();
+	void powerup_on_select();
+	
+	/**
+	 * Power down the emulated card (called upon ISO 14443 DESELECT)
+	 */
+	void powerdown_on_deselect();
 	
 protected:
 	/**

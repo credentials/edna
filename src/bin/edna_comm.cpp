@@ -461,7 +461,15 @@ bool edna_comm_thread::transceive(bytestring& apdu, bytestring& rdata)
 	{
 		comm_mutex.lock();
 		
-		if (!send_to_client(selected_application, apdu))
+		bytestring apdu_cmd;
+		bytestring apdu_rsp;
+		
+		apdu_cmd.resize(1);
+		apdu_cmd[0] = TRANSCEIVE_APDU;
+		
+		apdu_cmd += apdu;
+		
+		if (!send_to_client(selected_application, apdu_cmd))
 		{
 			comm_mutex.unlock();
 			
@@ -474,7 +482,7 @@ bool edna_comm_thread::transceive(bytestring& apdu, bytestring& rdata)
 			return false;
 		}
 		
-		if (!recv_from_client(selected_application, rdata))
+		if (!recv_from_client(selected_application, apdu_rsp) || (apdu_rsp.size() < 1) || (apdu_rsp[0] != EDNA_OK))
 		{
 			comm_mutex.unlock();
 			
@@ -486,6 +494,8 @@ bool edna_comm_thread::transceive(bytestring& apdu, bytestring& rdata)
 			
 			return false;
 		}
+		
+		rdata = apdu_rsp.substr(1);
 		
 		comm_mutex.unlock();
 	}
@@ -500,7 +510,54 @@ bool edna_comm_thread::application_selected()
 	return (selected_application != NO_APP_SELECTED);
 }
 
-void edna_comm_thread::deselect()
+void edna_comm_thread::powerup_on_select()
 {
 	selected_application = NO_APP_SELECTED;
+	
+	bytestring cmd;
+	bytestring rsp;
+	
+	cmd.resize(1);
+	cmd[0] = POWER_UP;
+	
+	/* Send POWER UP to all clients */
+	comm_mutex.lock();
+	
+	for (std::map<bytestring, int>::iterator i = application_registry.begin(); i != application_registry.end(); i++)
+	{		
+		if (send_to_client(i->second, cmd) && recv_from_client(i->second, rsp) && (rsp.size() == 1) && (rsp[0] == EDNA_OK))
+		{
+			DEBUG_MSG("Successful POWER UP of client on socket %d", i->second);
+		}
+		
+		rsp.wipe();
+	}
+	
+	comm_mutex.unlock();
+}
+
+void edna_comm_thread::powerdown_on_deselect()
+{
+	selected_application = NO_APP_SELECTED;
+	
+	bytestring cmd;
+	bytestring rsp;
+	
+	cmd.resize(1);
+	cmd[0] = POWER_DOWN;
+	
+	/* Send POWER DOWN to all clients */
+	comm_mutex.lock();
+	
+	for (std::map<bytestring, int>::iterator i = application_registry.begin(); i != application_registry.end(); i++)
+	{
+		if (send_to_client(i->second, cmd) && recv_from_client(i->second, rsp) && (rsp.size() == 1) && (rsp[0] == EDNA_OK))
+		{
+			DEBUG_MSG("Successful POWER DOWN of client on socket %d", i->second);
+		}
+		
+		rsp.wipe();
+	}
+	
+	comm_mutex.unlock();
 }
